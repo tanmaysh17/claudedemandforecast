@@ -1,0 +1,42 @@
+name: Deploy static app to GitHub Pages
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.ref_name != 'gh-pages'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare static site bundle
+        env:
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          cp script.js _site/script.js
+          cp styles.css _site/styles.css
+          printf "" > _site/.nojekyll
+          SHORT_SHA="${BUILD_SHA::7}"
+          sed -i "s/__BUILD_SHA__/${SHORT_SHA}/g" _site/index.html
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          force_orphan: true
