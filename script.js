@@ -1,6 +1,7 @@
 const csvInput = document.getElementById('csvFile');
 const dateColumnSelect = document.getElementById('dateColumn');
 const targetColumnSelect = document.getElementById('targetColumn');
+const metricLabelInput = document.getElementById('metricLabel');
 const periodsInput = document.getElementById('periods');
 const seasonLengthInput = document.getElementById('seasonLength');
 const holdoutInput = document.getElementById('holdout');
@@ -15,8 +16,11 @@ const kpiGrid = document.getElementById('kpiGrid');
 const modelSummary = document.getElementById('modelSummary');
 const modelTableBody = document.querySelector('#modelTable tbody');
 
-let chart = null;
 let rawRows = [];
+let forecastChart = null;
+let levelChart = null;
+let seasonalityChart = null;
+let distributionChart = null;
 
 const parseCSVLine = (line) => {
   const out = [];
@@ -61,17 +65,17 @@ const populateColumnSelectors = (headers) => {
   targetColumnSelect.innerHTML = '';
 
   headers.forEach((h) => {
-    const dateOption = new Option(h, h);
-    const targetOption = new Option(h, h);
-    dateColumnSelect.add(dateOption);
-    targetColumnSelect.add(targetOption);
+    dateColumnSelect.add(new Option(h, h));
+    targetColumnSelect.add(new Option(h, h));
   });
 
   const dateGuess = headers.find((h) => /date|ds|timestamp/i.test(h)) || headers[0];
-  const targetGuess = headers.find((h) => /demand|sales|qty|quantity|y|target/i.test(h)) || headers[Math.min(1, headers.length - 1)];
+  const targetGuess = headers.find((h) => /demand|sales|qty|quantity|target|y/i.test(h)) || headers[Math.min(1, headers.length - 1)];
   dateColumnSelect.value = dateGuess;
   targetColumnSelect.value = targetGuess;
 };
+
+const dateKey = (d) => d.toISOString().slice(0, 10);
 
 const aggregateAndSort = (rows, dateCol, targetCol) => {
   const map = new Map();
@@ -92,17 +96,26 @@ const aggregateAndSort = (rows, dateCol, targetCol) => {
   return points;
 };
 
-const dateKey = (d) => d.toISOString().slice(0, 10);
+const inferGranularity = (stepDays) => {
+  if (stepDays <= 2) return 'Daily';
+  if (stepDays <= 10) return 'Weekly';
+  if (stepDays <= 40) return 'Monthly';
+  return `Custom (~${stepDays} days)`;
+};
 
 const fillMissing = (points, strategy = 'interpolate') => {
-  if (points.length < 2) return { filled: points.slice(), inferredStepDays: 1, added: 0 };
+  if (points.length < 2) {
+    return { filled: points.slice(), inferredStepDays: 1, added: 0, granularity: 'Daily' };
+  }
 
   const diffs = [];
   for (let i = 1; i < points.length; i += 1) {
     const days = Math.round((points[i].date - points[i - 1].date) / (1000 * 60 * 60 * 24));
     if (days > 0) diffs.push(days);
   }
+
   const inferredStepDays = diffs.length ? diffs.sort((a, b) => a - b)[Math.floor(diffs.length / 2)] : 1;
+  const granularity = inferGranularity(inferredStepDays);
 
   const valueByDate = new Map(points.map((p) => [dateKey(p.date), p.value]));
   const full = [];
@@ -143,6 +156,7 @@ const fillMissing = (points, strategy = 'interpolate') => {
     filled: full.map((x) => ({ date: x.date, value: Number(x.value) })),
     inferredStepDays,
     added,
+    granularity,
   };
 };
 
@@ -153,7 +167,69 @@ const std = (arr) => {
   return Math.sqrt(arr.reduce((acc, v) => acc + ((v - m) ** 2), 0) / (arr.length - 1));
 };
 
-const summarizeSeries = (series, missingAdded) => {
+const rollingAverage = (values, window) => values.map((_, idx) => {
+  const start = Math.max(0, idx - window + 1);
+  const slice = values.slice(start, idx + 1);
+  return Number(mean(slice).toFixed(2));
+});
+
+const histogram = (values, bins = 12) => {
+  const minV = Math.min(...values);
+  const maxV = Math.max(...values);
+  if (minV === maxV) {
+    return { labels: [`${minV.toFixed(1)}-${maxV.toFixed(1)}`], counts: [values.length] };
+  }
+
+  const width = (maxV - minV) / bins;
+  const counts = Array(bins).fill(0);
+  values.forEach((v) => {
+    let idx = Math.floor((v - minV) / width);
+    if (idx >= bins) idx = bins - 1;
+    counts[idx] += 1;
+  });
+
+  const labels = Array.from({ length: bins }, (_, i) => {
+    const start = minV + i * width;
+    const end = start + width;
+    return `${start.toFixed(0)}-${end.toFixed(0)}`;
+  });
+  return { labels, counts };
+};
+
+const seasonalityProfile = (series, granularity) => {
+  if (granularity === 'Daily') {
+    const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const sums = Array(7).fill(0);
+    const counts = Array(7).fill(0);
+    series.forEach((p) => {
+      const idx = p.date.getDay();
+      sums[idx] += p.value;
+      counts[idx] += 1;
+    });
+    return {
+      labels: names,
+      averages: sums.map((s, i) => (counts[i] ? Number((s / counts[i]).toFixed(2)) : 0)),
+      title: 'Average by weekday',
+    };
+  }
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const sums = Array(12).fill(0);
+  const counts = Array(12).fill(0);
+  series.forEach((p) => {
+    const idx = p.date.getMonth();
+    sums[idx] += p.value;
+    counts[idx] += 1;
+  });
+
+  return {
+    labels: monthNames,
+    averages: sums.map((s, i) => (counts[i] ? Number((s / counts[i]).toFixed(2)) : 0)),
+    title: 'Average by month',
+  };
+};
+
+const summarizeSeries = (series, missingAdded, granularity, stepDays) => {
   const values = series.map((p) => p.value);
   const m = mean(values);
   const s = std(values);
@@ -171,6 +247,8 @@ const summarizeSeries = (series, missingAdded) => {
     max: Math.max(...values),
     outliers: zOutliers,
     missingAdded,
+    granularity,
+    stepDays,
   };
 };
 
@@ -294,16 +372,23 @@ const addDays = (date, days) => {
   return d;
 };
 
-const renderKpis = (stats) => {
+const modelLabel = (m) => ({
+  holt: 'Holt linear trend',
+  seasonal_naive: 'Seasonal naive',
+  trend_seasonal: 'Trend + seasonal index',
+}[m] || m);
+
+const renderKpis = (stats, metric) => {
   kpiGrid.innerHTML = '';
   const kpis = [
     ['Observations', stats.observations],
+    ['Granularity', `${stats.granularity} (~${stats.stepDays} day step)`],
     ['Start date', stats.startDate],
     ['End date', stats.endDate],
-    ['Mean demand', stats.mean.toFixed(2)],
-    ['Std dev', stats.std.toFixed(2)],
+    [`Mean (${metric})`, stats.mean.toFixed(2)],
+    [`Std dev (${metric})`, stats.std.toFixed(2)],
     ['Coeff. variation', stats.cv.toFixed(2)],
-    ['Min / Max', `${stats.min.toFixed(2)} / ${stats.max.toFixed(2)}`],
+    [`Min / Max (${metric})`, `${stats.min.toFixed(2)} / ${stats.max.toFixed(2)}`],
     ['Outliers (|z|>=3)', stats.outliers],
     ['Missing periods filled', stats.missingAdded],
   ];
@@ -315,12 +400,6 @@ const renderKpis = (stats) => {
     kpiGrid.appendChild(div);
   });
 };
-
-const modelLabel = (m) => ({
-  holt: 'Holt linear trend',
-  seasonal_naive: 'Seasonal naive',
-  trend_seasonal: 'Trend + seasonal index',
-}[m] || m);
 
 const renderModelTable = (scores, selectedModel) => {
   modelTableBody.innerHTML = '';
@@ -334,6 +413,54 @@ const renderModelTable = (scores, selectedModel) => {
       <td>${s.mape.toFixed(2)}</td>
     `;
     modelTableBody.appendChild(tr);
+  });
+};
+
+const destroyCharts = () => {
+  [forecastChart, levelChart, seasonalityChart, distributionChart].forEach((chart) => {
+    if (chart) chart.destroy();
+  });
+};
+
+const renderEdaCharts = (series, granularity, metric) => {
+  const labels = series.map((p) => dateKey(p.date));
+  const values = series.map((p) => p.value);
+  const rollingWindow = granularity === 'Daily' ? 7 : granularity === 'Weekly' ? 4 : 3;
+  const rolling = rollingAverage(values, rollingWindow);
+
+  const levelCtx = document.getElementById('levelChart');
+  levelChart = new Chart(levelCtx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: `Actual (${metric})`, data: values, borderColor: '#2563eb', pointRadius: 1.4, tension: 0.15 },
+        { label: `${rollingWindow}-period moving avg`, data: rolling, borderColor: '#f59e0b', borderDash: [5, 4], pointRadius: 0, tension: 0.2 },
+      ],
+    },
+    options: { scales: { y: { beginAtZero: true } } },
+  });
+
+  const seasonal = seasonalityProfile(series, granularity);
+  const seasonalCtx = document.getElementById('seasonalityChart');
+  seasonalityChart = new Chart(seasonalCtx, {
+    type: 'bar',
+    data: {
+      labels: seasonal.labels,
+      datasets: [{ label: `${seasonal.title} (${metric})`, data: seasonal.averages, backgroundColor: '#14b8a6' }],
+    },
+    options: { scales: { y: { beginAtZero: true } } },
+  });
+
+  const dist = histogram(values, 12);
+  const distCtx = document.getElementById('distributionChart');
+  distributionChart = new Chart(distCtx, {
+    type: 'bar',
+    data: {
+      labels: dist.labels,
+      datasets: [{ label: 'Count', data: dist.counts, backgroundColor: '#0ea5e9' }],
+    },
+    options: { scales: { y: { beginAtZero: true } } },
   });
 };
 
@@ -369,6 +496,7 @@ runBtn.addEventListener('click', async () => {
 
     const dateCol = dateColumnSelect.value;
     const targetCol = targetColumnSelect.value;
+    const metric = (metricLabelInput.value || 'units').trim();
     const horizon = Number(periodsInput.value);
     const seasonLength = Number(seasonLengthInput.value);
     const holdout = Number(holdoutInput.value);
@@ -378,18 +506,21 @@ runBtn.addEventListener('click', async () => {
     if (!Number.isInteger(holdout) || holdout < 3) throw new Error('Validation holdout must be at least 3.');
 
     const points = aggregateAndSort(rawRows, dateCol, targetCol);
-    const { filled, inferredStepDays, added } = fillMissing(points, missingStrategySelect.value);
+    const { filled, inferredStepDays, added, granularity } = fillMissing(points, missingStrategySelect.value);
     if (filled.length < 12) throw new Error('Need at least 12 time points for reliable benchmarking.');
 
-    const stats = summarizeSeries(filled, added);
-    renderKpis(stats);
+    const stats = summarizeSeries(filled, added, granularity, inferredStepDays);
+    renderKpis(stats, metric);
+
+    destroyCharts();
+    renderEdaCharts(filled, granularity, metric);
 
     const values = filled.map((p) => p.value);
     const scores = benchmarkModels(values, holdout, seasonLength);
 
     const chosen = modelSelect.value === 'auto' ? scores[0].model : modelSelect.value;
     renderModelTable(scores, chosen);
-    modelSummary.textContent = `Selected model: ${modelLabel(chosen)}. Inferred interval: every ${inferredStepDays} day(s).`;
+    modelSummary.textContent = `Selected model: ${modelLabel(chosen)}. Inferred granularity: ${granularity} (~${inferredStepDays} day interval).`;
 
     const futureValues = runModel(chosen, values, horizon, seasonLength);
     const historyLabels = filled.map((p) => dateKey(p.date));
@@ -399,14 +530,13 @@ runBtn.addEventListener('click', async () => {
     const historySeries = values.concat(Array(horizon).fill(null));
     const forecastSeries = Array(values.length).fill(null).concat(futureValues);
 
-    const ctx = document.getElementById('forecastChart');
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, {
+    const forecastCtx = document.getElementById('forecastChart');
+    forecastChart = new Chart(forecastCtx, {
       type: 'line',
       data: {
         labels: allLabels,
         datasets: [
-          { label: 'Historical Demand', data: historySeries, borderColor: '#0b5fff', pointRadius: 1.6, tension: 0.15 },
+          { label: `Historical (${metric})`, data: historySeries, borderColor: '#2563eb', pointRadius: 1.5, tension: 0.15 },
           { label: `Forecast (${modelLabel(chosen)})`, data: forecastSeries, borderColor: '#16a34a', borderDash: [6, 6], pointRadius: 1.8, tension: 0.15 },
         ],
       },

@@ -1,26 +1,28 @@
 body {
   font-family: Inter, Arial, sans-serif;
-  background: #f4f7fb;
-  color: #1f2937;
+  background: radial-gradient(circle at 20% 10%, #e0f2fe 0%, #eff6ff 45%, #f8fafc 100%);
+  color: #0f172a;
   line-height: 1.4;
 }
 
 .container {
-  max-width: 1080px;
+  max-width: 1180px;
   margin: 2rem auto;
   padding: 0 1rem;
 }
 
 .subtitle {
-  color: #4b5563;
+  color: #334155;
 }
 
 .card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
   padding: 1rem;
   margin: 1rem 0;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
 }
 
 .grid {
@@ -36,36 +38,60 @@ label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
 input, select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #d1d5db;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 0.55rem;
+  background: #fff;
 }
 
 button {
-  background: #0b5fff;
+  background: linear-gradient(90deg, #2563eb, #0ea5e9);
   color: #fff;
   border: none;
   border-radius: 8px;
   padding: 0.65rem 1rem;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .kpi {
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbeafe;
   border-radius: 10px;
   padding: 0.7rem;
 }
 
-.kpi .name { color: #64748b; font-size: 0.85rem; }
+.kpi .name { color: #475569; font-size: 0.85rem; }
 .kpi .value { font-size: 1.05rem; font-weight: 700; margin-top: 0.2rem; }
+
+.chart-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chart-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.chart-card.full {
+  grid-column: 1 / -1;
+}
+
+.chart-card h3 {
+  margin: 0 0 0.45rem 0;
+  font-size: 0.95rem;
+}
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
@@ -75,18 +101,19 @@ th { background: #f8fafc; }
 .error { color: #b42318; font-weight: 700; margin-top: 0.5rem; }
 .hidden { display: none; }
 
-@media (max-width: 840px) {
-  .grid.two, .grid.three, .kpi-grid { grid-template-columns: 1fr; }
-}
-
-
 .build-badge {
   margin-top: -0.25rem;
   color: #475569;
   font-size: 0.9rem;
 }
+
 .build-badge code {
   background: #eef2ff;
   padding: 0.1rem 0.35rem;
   border-radius: 6px;
+}
+
+@media (max-width: 920px) {
+  .grid.two, .grid.three, .kpi-grid, .chart-grid { grid-template-columns: 1fr; }
+  .chart-card.full { grid-column: auto; }
 }

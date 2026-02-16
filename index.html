@@ -13,15 +13,15 @@
 <body>
   <main class="container">
     <h1>Demand Forecasting Workbench</h1>
-    <p class="subtitle">Upload your dataset, run EDA, benchmark multiple models, and generate a production-style forecast.</p>
+    <p class="subtitle">Upload your dataset, profile data quality, assess seasonality, benchmark models, and generate a forecast.</p>
     <p class="build-badge">Build: <code>__BUILD_SHA__</code></p>
 
     <section class="card">
-      <h2>1) Data Input</h2>
+      <h2>1) Data Input & Forecast Setup</h2>
       <label>CSV file</label>
       <input id="csvFile" type="file" accept=".csv" />
 
-      <div class="grid two">
+      <div class="grid three">
         <div>
           <label>Date column</label>
           <select id="dateColumn"></select>
@@ -30,19 +30,23 @@
           <label>Target column</label>
           <select id="targetColumn"></select>
         </div>
+        <div>
+          <label>Target metric label (e.g. units, revenue, orders)</label>
+          <input id="metricLabel" type="text" value="units" />
+        </div>
       </div>
 
       <div class="grid three">
         <div>
-          <label>Forecast horizon</label>
+          <label>Forecast horizon (periods)</label>
           <input id="periods" type="number" min="1" max="365" value="30" />
         </div>
         <div>
-          <label>Season length</label>
+          <label>Season length (periods)</label>
           <input id="seasonLength" type="number" min="1" max="60" value="7" />
         </div>
         <div>
-          <label>Validation holdout</label>
+          <label>Validation holdout (periods)</label>
           <input id="holdout" type="number" min="3" max="90" value="14" />
         </div>
       </div>
@@ -71,8 +75,22 @@
     </section>
 
     <section class="card hidden" id="edaSection">
-      <h2>2) Data Quality & EDA</h2>
+      <h2>2) Data Quality & EDA Summary</h2>
       <div id="kpiGrid" class="kpi-grid"></div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Historical Series + Rolling Average</h3>
+          <canvas id="levelChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Seasonality Profile (Average by cycle)</h3>
+          <canvas id="seasonalityChart"></canvas>
+        </div>
+        <div class="chart-card full">
+          <h3>Distribution (Histogram)</h3>
+          <canvas id="distributionChart"></canvas>
+        </div>
+      </div>
     </section>
 
     <section class="card hidden" id="modelSection">

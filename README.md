@@ -4,10 +4,12 @@ A browser-based demand forecasting workbench with configurable inputs, EDA, mode
 
 ## What is now included
 - Flexible CSV ingestion with selectable date and target columns.
-- Data quality checks and EDA metrics:
+- Data quality checks and richer EDA:
+  - inferred data granularity (daily/weekly/monthly/custom)
   - observation window, mean/std, coefficient of variation
-  - outlier count (z-score based)
-  - missing period detection + imputation
+  - outlier count (z-score based) and histogram distribution
+  - seasonality charts (weekday/month profile)
+  - rolling-average trend view and missing period detection + imputation
 - Multi-model benchmark on a validation holdout:
   - Holt linear trend
   - Seasonal naive
@@ -52,6 +54,8 @@ If you still see the old basic layout:
 6. Confirm page shows a new **Build** SHA badge and `styles.css?v=<sha>`.
 
 If you previously had a workflow using `actions/deploy-pages`, it can fail when Pages is not configured for GitHub Actions. This repository deploys via `gh-pages` branch to avoid that dependency.
+
+The input form also includes a **Target metric label** (for example: units, revenue, orders) so outputs and charts are clearly labeled.
 
 ## CSV example
 ```csv
