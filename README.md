@@ -1,12 +1,19 @@
 # Demand Forecasting Web Application
 
-A lightweight web app for uploading historical demand data and generating a short-term forecast.
+A browser-based demand forecasting workbench with configurable inputs, EDA, model benchmarking, and auto model selection.
 
-## Features
-- CSV upload (`date`, `demand` columns)
-- Adjustable forecast horizon
-- Historical + forecast chart output
-- Linear-trend forecasting baseline in browser JavaScript
+## What is now included
+- Flexible CSV ingestion with selectable date and target columns.
+- Data quality checks and EDA metrics:
+  - observation window, mean/std, coefficient of variation
+  - outlier count (z-score based)
+  - missing period detection + imputation
+- Multi-model benchmark on a validation holdout:
+  - Holt linear trend
+  - Seasonal naive
+  - Trend + seasonal index model
+- Automatic model selection (or manual override).
+- Forecast visualization with model annotation.
 
 ## Run locally
 ```bash
@@ -18,7 +25,7 @@ Then open `http://localhost:8000`.
 This app is static and is deployed by workflow to the `gh-pages` branch.
 
 1. Push this repository to GitHub.
-2. Merge changes into `main` (or `master`).
+2. Push your changes to any branch (workflow listens on all branches except `gh-pages`).
 3. In **Settings → Pages**:
    - Source: **Deploy from a branch**
    - Branch: **gh-pages**
@@ -26,31 +33,27 @@ This app is static and is deployed by workflow to the `gh-pages` branch.
 4. After the deploy workflow succeeds, open:
    - `https://<your-github-username>.github.io/<your-repo-name>/`
 
-### If checks fail quickly
-If you previously had a workflow using `actions/deploy-pages`, it can fail when Pages is not configured for GitHub Actions. This repository now deploys using a `gh-pages` branch to avoid that setup dependency.
+## How to verify you are seeing the latest deployed version
+
+### Your repo quick links
+- Repository: `https://github.com/tanmaysh17/claudedemandforecast`
+- Actions: `https://github.com/tanmaysh17/claudedemandforecast/actions`
+- Pages settings: `https://github.com/tanmaysh17/claudedemandforecast/settings/pages`
+- Expected site URL: `https://tanmaysh17.github.io/claudedemandforecast/`
+
+The page shows a **Build** badge near the top. After each deploy, it should match the latest commit short SHA from the workflow run.
+
+If you still see the old basic layout:
+1. Confirm your latest commit is on GitHub (not only local).
+2. Open **Actions** and verify the "Deploy static app to GitHub Pages" job succeeded for that commit SHA.
+3. Open **Settings → Pages** and confirm source is `gh-pages` branch.
+4. Open **Settings → Actions → General** and set workflow permissions to **Read and write** (required for gh-pages publish).
+5. Hard refresh (`Ctrl/Cmd + Shift + R`) or use an incognito tab.
+6. Confirm page shows a new **Build** SHA badge and `styles.css?v=<sha>`.
+
+If you previously had a workflow using `actions/deploy-pages`, it can fail when Pages is not configured for GitHub Actions. This repository deploys via `gh-pages` branch to avoid that dependency.
 
 ## CSV example
-
-Then open `http://localhost:8000`.
-
-## Run on the web (GitHub Pages)
-This project is static (`index.html`, `script.js`, `styles.css`), so it can be hosted directly on GitHub Pages.
-
-### 1) Put the repo on GitHub
-Push this branch to your GitHub repository.
-
-### 2) Merge to `main`
-The workflow in `.github/workflows/deploy-pages.yml` runs on pushes to `main`.
-
-### 3) Enable Pages in repo settings
-In GitHub: **Settings → Pages → Build and deployment**
-- Source: **GitHub Actions**
-
-### 4) Visit your live app
-After the workflow succeeds, your app will be available at:
-- `https://<your-github-username>.github.io/<your-repo-name>/`
-
-## CSV format
 ```csv
 date,demand
 2024-01-01,100
@@ -59,7 +62,9 @@ date,demand
 ```
 
 ## Optional Python utility tests
-## Optional Python forecast utility tests
 ```bash
 PYTHONPATH=. pytest -q
 ```
+
+### Manual emergency deploy
+If Actions are disabled, go to **Settings → Pages** and temporarily set source to your branch (`main`/`work`) and `/(root)` to serve directly from branch files.
