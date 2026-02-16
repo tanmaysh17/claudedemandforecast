@@ -1,19 +1,12 @@
 # Demand Forecasting Web Application
 
-A browser-based demand forecasting workbench with configurable inputs, EDA, model benchmarking, and auto model selection.
+A lightweight web app for uploading historical demand data and generating a short-term forecast.
 
-## What is now included
-- Flexible CSV ingestion with selectable date and target columns.
-- Data quality checks and EDA metrics:
-  - observation window, mean/std, coefficient of variation
-  - outlier count (z-score based)
-  - missing period detection + imputation
-- Multi-model benchmark on a validation holdout:
-  - Holt linear trend
-  - Seasonal naive
-  - Trend + seasonal index model
-- Automatic model selection (or manual override).
-- Forecast visualization with model annotation.
+## Features
+- CSV upload (`date`, `demand` columns)
+- Adjustable forecast horizon
+- Historical + forecast chart output
+- Linear-trend forecasting baseline in browser JavaScript
 
 ## Run locally
 ```bash
@@ -37,6 +30,27 @@ This app is static and is deployed by workflow to the `gh-pages` branch.
 If you previously had a workflow using `actions/deploy-pages`, it can fail when Pages is not configured for GitHub Actions. This repository now deploys using a `gh-pages` branch to avoid that setup dependency.
 
 ## CSV example
+
+Then open `http://localhost:8000`.
+
+## Run on the web (GitHub Pages)
+This project is static (`index.html`, `script.js`, `styles.css`), so it can be hosted directly on GitHub Pages.
+
+### 1) Put the repo on GitHub
+Push this branch to your GitHub repository.
+
+### 2) Merge to `main`
+The workflow in `.github/workflows/deploy-pages.yml` runs on pushes to `main`.
+
+### 3) Enable Pages in repo settings
+In GitHub: **Settings → Pages → Build and deployment**
+- Source: **GitHub Actions**
+
+### 4) Visit your live app
+After the workflow succeeds, your app will be available at:
+- `https://<your-github-username>.github.io/<your-repo-name>/`
+
+## CSV format
 ```csv
 date,demand
 2024-01-01,100
@@ -45,6 +59,7 @@ date,demand
 ```
 
 ## Optional Python utility tests
+## Optional Python forecast utility tests
 ```bash
 PYTHONPATH=. pytest -q
 ```
