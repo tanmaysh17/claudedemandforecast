@@ -2,39 +2,37 @@ name: Deploy static app to GitHub Pages
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare static site bundle
-        env:
-          BUILD_SHA: ${{ github.sha }}
-        run: |
-          mkdir -p _site
-          cp index.html _site/index.html
-          cp script.js _site/script.js
-          cp styles.css _site/styles.css
-          printf "" > _site/.nojekyll
-          SHORT_SHA="${BUILD_SHA::7}"
-          sed -i "s/__BUILD_SHA__/${SHORT_SHA}/g" _site/index.html
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
-      - name: Deploy to gh-pages branch
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./_site
-          publish_branch: gh-pages
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
