@@ -15,6 +15,23 @@ python -m http.server 8000
 
 Then open `http://localhost:8000`.
 
+## Run on the web (GitHub Pages)
+This project is static (`index.html`, `script.js`, `styles.css`), so it can be hosted directly on GitHub Pages.
+
+### 1) Put the repo on GitHub
+Push this branch to your GitHub repository.
+
+### 2) Merge to `main`
+The workflow in `.github/workflows/deploy-pages.yml` runs on pushes to `main`.
+
+### 3) Enable Pages in repo settings
+In GitHub: **Settings → Pages → Build and deployment**
+- Source: **GitHub Actions**
+
+### 4) Visit your live app
+After the workflow succeeds, your app will be available at:
+- `https://<your-github-username>.github.io/<your-repo-name>/`
+
 ## CSV format
 ```csv
 date,demand
